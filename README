@@ -1,0 +1,7 @@
+RoR app which provides a dynamic summary view of collected traffic information from pmacct.
+
+Currently developing on Ubuntu 10.04, and using the following versions:
+- Ruby 1.8.7
+- Rails 2.3.5
+- Active*/Action* 2.3.5
+- MySQL 5.1 ?
