@@ -1,0 +1,2 @@
+module UsageEntriesHelper
+end

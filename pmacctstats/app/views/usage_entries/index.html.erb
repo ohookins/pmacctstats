@@ -1,0 +1,24 @@
+<h1>Listing usage_entries</h1>
+
+<table>
+  <tr>
+    <th>In</th>
+    <th>Out</th>
+    <th>Date</th>
+  </tr>
+
+<% @usage_entries.each do |usage_entry| %>
+  <tr>
+    <td><%=h usage_entry.in %></td>
+    <td><%=h usage_entry.out %></td>
+    <td><%=h usage_entry.date %></td>
+    <td><%= link_to 'Show', usage_entry %></td>
+    <td><%= link_to 'Edit', edit_usage_entry_path(usage_entry) %></td>
+    <td><%= link_to 'Destroy', usage_entry, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New usage_entry', new_usage_entry_path %>

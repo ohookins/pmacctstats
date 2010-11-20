@@ -1,0 +1,21 @@
+* 0.0.1
+ - frontpage view
+  - list of IP addresses and links to stats
+ - individual address stats view
+  - last 30 days of stats in table form (per day)
+ - daily summary model
+  - IPv4/IPv6 host
+  - MB in
+  - MB out
+  - date
+ - summary controller
+  - return array of last 30 entries of MB in, MB out, date
+ - manual rake task for processing stats from pmacct database
+
+* 0.0.2
+ - graphs on stats page
+ - configuration data for pmacct database, in a view
+ - automatic processing of daily stats data into summary model
+
+* 0.0.3
+ - racktables integration ?

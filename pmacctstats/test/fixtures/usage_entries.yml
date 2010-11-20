@@ -1,0 +1,11 @@
+# Read about fixtures at http://ar.rubyonrails.org/classes/Fixtures.html
+
+one:
+  in: 9.99
+  out: 9.99
+  date: 2010-11-16
+
+two:
+  in: 9.99
+  out: 9.99
+  date: 2010-11-16

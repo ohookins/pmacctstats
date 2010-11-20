@@ -1,0 +1,24 @@
+<h1>Editing usage_entry</h1>
+
+<% form_for(@usage_entry) do |f| %>
+  <%= f.error_messages %>
+
+  <p>
+    <%= f.label :in %><br />
+    <%= f.text_field :in %>
+  </p>
+  <p>
+    <%= f.label :out %><br />
+    <%= f.text_field :out %>
+  </p>
+  <p>
+    <%= f.label :date %><br />
+    <%= f.date_select :date %>
+  </p>
+  <p>
+    <%= f.submit 'Update' %>
+  </p>
+<% end %>
+
+<%= link_to 'Show', @usage_entry %> |
+<%= link_to 'Back', usage_entries_path %>

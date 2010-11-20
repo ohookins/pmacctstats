@@ -1,0 +1,18 @@
+<p>
+  <b>In:</b>
+  <%=h @usage_entry.in %>
+</p>
+
+<p>
+  <b>Out:</b>
+  <%=h @usage_entry.out %>
+</p>
+
+<p>
+  <b>Date:</b>
+  <%=h @usage_entry.date %>
+</p>
+
+
+<%= link_to 'Edit', edit_usage_entry_path(@usage_entry) %> |
+<%= link_to 'Back', usage_entries_path %>
