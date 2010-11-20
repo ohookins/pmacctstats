@@ -3,6 +3,7 @@ require 'mysql'
 require 'ipaddr'
 
 class Summarise
+    # define some constants used throughout the summarisation
     CONFIG   = Rails::Configuration.new
     HOST     = CONFIG.database_configuration[RAILS_ENV]["host"]
     SOURCEDB = 'pmacct'
@@ -12,13 +13,52 @@ class Summarise
     STARTDATE = '2010-01-01'
     LOCALNETS = ['192.168.1.0/24'] # supports both IPv4 and IPv6
 
-
+    private
+    # reasonably naive logging shortcut
     def self.log (msglevel, msg, loglevel = 0)
         if msglevel and msg and loglevel >= msglevel then
             puts msg
         end
     end 
 
+    # shortcut for outputting the current method call name
+    def self.this_method_name
+        caller[0] =~ /`([^']*)'/ and $1
+    end 
+
+    # adds an ip (host) entry to the rails database
+    def self.add_ip(params = {:dconn => '', :ip => '', :loglevel => 0})
+        params[:dconn].class == Mysql or raise "#{this_method_name} was not passed a valid MySQL connection."
+        params[:ip].class == IPAddr or raise "#{this_method_name} was not passed a valid IP address."
+
+        # check the IP is not already there
+        stmt = "SELECT id FROM hosts WHERE ip = \'#{params[:ip].to_s}\'"
+        log(2, stmt, params[:loglevel])
+        res = params[:dconn].query(stmt)
+        if res and res.num_rows() >= 1 then
+            if res.num_rows() > 1 then
+                raise "#{params[:ip].to_s} found multiple times in the hosts table, this should not happen."
+            end
+            id = res.fetch_row()
+            log(2, "#{params[:ip].to_s} found at ID #{id} in hosts table.", params[:loglevel])
+
+        # didn't find the IP address in the table, so add it
+        else
+            begin
+                stmt = "INSERT INTO hosts (id, ip, created_at, updated_at) VALUES (NULL, \'#{params[:ip].to_s}\', NOW(), NOW())"
+                log(2, stmt, params[:loglevel])
+                params[:dconn].query(stmt)
+                log(2, "#{params[:ip].to_s} inserted at ID #{params[:dconn].insert_id}", params[:loglevel])
+                params[:dconn].commit
+            rescue
+                params[:dconn].rollback
+                raise "insertion of #{params[:ip].to_s} failed and was rolled back in #{this_method_name}"
+            end
+        end
+    end
+
+    public
+    # the guts of the usage summarisation
     def self.run (loglevel = 0)
         import_date = ''
         import_list = []
@@ -88,15 +128,18 @@ class Summarise
                     localnets.push(IPAddr.new(n))
                 end
 
-                # Pick out valid IP addresses and collect them
+                # Pick out valid IP addresses and add them to the "hosts" rails table
                 valid_ips = []
                 if res then
                     res.each do |r|
                         r_ip = IPAddr.new(r[0])
                         localnets.each do |n|
-                            n.include?(r_ip) and valid_ips.push(r_ip.to_s) and log(1, "Found valid IP address: #{r_ip.to_s}", loglevel)
+                            n.include?(r_ip) and valid_ips.push(r_ip) and log(1, "Found valid IP address: #{r_ip.to_s}", loglevel)
                         end
                     end
+                end
+                valid_ips.each do |i|
+                    add_ip({:dconn => dconn, :ip => i, :loglevel => loglevel})
                 end
             end 
         rescue => detail
