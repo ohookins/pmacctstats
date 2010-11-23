@@ -62,7 +62,7 @@ class Summarise
             end
             insert_id = res.fetch_row()
             log(2, "#{params[:ip]} found at ID #{insert_id} in hosts table.", params[:loglevel])
-        res and res.free
+            res.free
 
         # didn't find the IP address in the table, so add it
         else
@@ -73,20 +73,20 @@ class Summarise
                 insert_id = params[:dconn].insert_id
                 log(2, "#{params[:ip]} inserted at ID #{insert_id}", params[:loglevel])
                 params[:dconn].commit
-            rescue
+            rescue => detail
                 params[:dconn].rollback
-                raise "insertion of #{params[:ip]} failed and was rolled back in #{this_method_name}"
+                raise "insertion of #{params[:ip]} failed and was rolled back in #{this_method_name} => #{detail}"
             end
         end
         return insert_id
     end
 
     # add usage for local IPs for a date to the rails database
-    def self.add_usage(params = {:sconn => nil, :dconn => nil, :ip_map => nil, :date => nil, :loglevel => nil})
-        # ip_map = ipaddress:id
+    def self.add_usage(params = {:sconn => nil, :dconn => nil, :date => nil, :loglevel => nil})
         # NOTE: Since MySQL does not have built-in useful IP address functions like PostgreSQL,
         # we are forced to grab all rows and do filtering in the app. This may become unfeasible
         # when the daily stats become too large. ### IN (\'#{foo.keys * %q{','}}\')
+
         stmt = "SELECT ip_src,ip_dst,bytes FROM acct WHERE DATE(stamp_inserted) = \'#{params[:date]}\'"
         log(2, stmt, params[:loglevel])
         res = params[:sconn].query(stmt)
@@ -96,7 +96,7 @@ class Summarise
         source_matched = 0 # purely diagnostic tracking
         dest_matched = 0 # ditto
         bytesbyip = {} # keep a hash of our matched IPs and their byte counters like {IP => [inbytes, outbytes]}
-        res.each_hash do |r|
+        res and res.each_hash do |r|
             if matches_subnets?(r['ip_src']) and not matches_subnets?(r['ip_dst']) then
                 source_matched += 1
                 bytesbyip[r['ip_src']] or bytesbyip[r['ip_src']] = [0,0] # create a record in the hash if missing
@@ -107,10 +107,10 @@ class Summarise
                 bytesbyip[r['ip_dst']][0] += r['bytes'].to_i
             end
         end
+        res and res.free
         log(1, "source_matched: #{source_matched} for #{params[:date]}", params[:loglevel])
         log(1, "dest_matched: #{dest_matched} for #{params[:date]}", params[:loglevel])
         log(2, bytesbyip.each { |k,v| puts "#{k}: #{v[0]} in, #{v[1]} out" }, params[:loglevel])
-        res.free
 
         # Finally, insert the usage data into the rails usage_entries table
         bytesbyip.each do |k,v|
@@ -172,30 +172,26 @@ class Summarise
             if res and res.num_rows() == 1 then
                 import_date = res.fetch_row()
                 log(1, "last import date: #{import_date}", loglevel)
+                res.free
             else
                 fail('Unable to determine last usage import date, or use a default value.')
             end
-            res and res.free
 
             # Determine list of days we have to process.
             # We don't want to import today's stats as we won't have the complete day's stats.
             stmt = "SELECT DISTINCT(DATE(stamp_inserted)) AS date FROM acct WHERE stamp_inserted > \'#{import_date}\' AND stamp_inserted < DATE(NOW()) ORDER BY date"
             log(2, stmt, loglevel)
             res = sconn.query(stmt)
-            if res then
-                if res.num_rows() >= 1 then
-                    res.each do |r|
-                        r_date = r[0]
-                        r_date.class == String and import_list.push(r_date) and log(1, "need to import: #{r_date}", loglevel)
-                    end
-                else
-                    log(1, "Nothing to import", loglevel)
-                    return(0)
+            if res and res.num_rows() >= 1 then
+                res.each do |r|
+                    r_date = r[0]
+                    r_date.class == String and import_list.push(r_date) and log(1, "need to import: #{r_date}", loglevel)
                 end
+                res.free
             else
-                raise "Nothing returned from query #{stmt}"
+                log(1, "Nothing to import", loglevel)
+                return(0)
             end
-            res and res.free
 
             # Run import for each missing day of stats
             import_list.each do |d|
@@ -209,20 +205,16 @@ class Summarise
 
                 # Pick out valid IP addresses and add them to the "hosts" rails table
                 valid_ips = []
-                ip_map = {}
                 res and res.each do |r|
                     if matches_subnets?(r[0]) then
                         log(1, "Found valid IP address: #{r[0]}", loglevel)
-
-                        # This rather inscrutible line adds the IP to the hosts table through add_ip,
-                        # and then adds the {ip => row_num} pair to a map for use by add_usage.
-                        ip_map[r[0]] = add_ip({:dconn => dconn, :ip => r[0], :loglevel => loglevel})
+                        add_ip({:dconn => dconn, :ip => r[0], :loglevel => loglevel})
                     end
                 end
                 res and res.free
 
                 # Summarise traffic 
-                add_usage({:sconn => sconn, :dconn => dconn, :ip_map => ip_map, :date => d, :loglevel => loglevel})
+                add_usage({:sconn => sconn, :dconn => dconn, :date => d, :loglevel => loglevel})
             end 
         rescue => detail
             log(0, detail, loglevel)
