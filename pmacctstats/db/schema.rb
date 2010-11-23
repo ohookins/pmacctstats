@@ -18,8 +18,9 @@ ActiveRecord::Schema.define(:version => 20101116201752) do
   end
 
   create_table "usage_entries", :force => true do |t|
-    t.integer  "in",         :limit => 10, :precision => 10, :scale => 0
-    t.integer  "out",        :limit => 10, :precision => 10, :scale => 0
+    t.integer  "host_id"
+    t.decimal  "in",         :precision => 8, :scale => 2
+    t.decimal  "out",        :precision => 8, :scale => 2
     t.date     "date"
     t.datetime "created_at"
     t.datetime "updated_at"
