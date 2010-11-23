@@ -48,34 +48,34 @@ class Summarise
 
     # adds an ip (host) entry to the rails database
     def self.add_ip(params = {:dconn => nil, :ip => nil, :loglevel => 0})
-        insert_id = ''
+        insert_id = nil
         params[:dconn].class == Mysql or raise "#{this_method_name} was not passed a valid MySQL connection."
-        params[:ip].class == IPAddr or raise "#{this_method_name} was not passed a valid IP address."
+        IPAddr.new(params[:ip]) or raise "#{this_method_name} was not passed a valid IP address."
 
         # check the IP is not already there
-        stmt = "SELECT id FROM hosts WHERE ip = \'#{params[:ip].to_s}\'"
+        stmt = "SELECT id FROM hosts WHERE ip = \'#{params[:ip]}\'"
         log(2, stmt, params[:loglevel])
         res = params[:dconn].query(stmt)
         if res and res.num_rows() >= 1 then
             if res.num_rows() > 1 then
-                raise "#{params[:ip].to_s} found multiple times in the hosts table, this should not happen."
+                raise "#{params[:ip]} found multiple times in the hosts table, this should not happen."
             end
             insert_id = res.fetch_row()
-            log(2, "#{params[:ip].to_s} found at ID #{insert_id} in hosts table.", params[:loglevel])
+            log(2, "#{params[:ip]} found at ID #{insert_id} in hosts table.", params[:loglevel])
         res and res.free
 
         # didn't find the IP address in the table, so add it
         else
             begin
-                stmt = "INSERT INTO hosts (id, ip, created_at, updated_at) VALUES (NULL, \'#{params[:ip].to_s}\', NOW(), NOW())"
+                stmt = "INSERT INTO hosts (id, ip, created_at, updated_at) VALUES (NULL, \'#{params[:ip]}\', NOW(), NOW())"
                 log(2, stmt, params[:loglevel])
                 params[:dconn].query(stmt)
                 insert_id = params[:dconn].insert_id
-                log(2, "#{params[:ip].to_s} inserted at ID #{insert_id}", params[:loglevel])
+                log(2, "#{params[:ip]} inserted at ID #{insert_id}", params[:loglevel])
                 params[:dconn].commit
             rescue
                 params[:dconn].rollback
-                raise "insertion of #{params[:ip].to_s} failed and was rolled back in #{this_method_name}"
+                raise "insertion of #{params[:ip]} failed and was rolled back in #{this_method_name}"
             end
         end
         return insert_id
@@ -142,7 +142,7 @@ class Summarise
     public
     # the guts of the usage summarisation
     def self.run (loglevel = 0)
-        import_date = ''
+        import_date = nil
         import_list = []
 
         begin
@@ -207,28 +207,19 @@ class Summarise
                 log(2, stmt, loglevel)
                 res = sconn.query(stmt)
 
-                # Create IPAddr objects of all our subnets to test against
-                localnets = []
-                LOCALNETS.each do |n|
-                    localnets.push(IPAddr.new(n))
-                end
-
                 # Pick out valid IP addresses and add them to the "hosts" rails table
                 valid_ips = []
                 ip_map = {}
-                if res then
-                    res.each do |r|
-                        r_ip = IPAddr.new(r[0])
-                        localnets.each do |n|
-                            n.include?(r_ip) and valid_ips.push(r_ip) and log(1, "Found valid IP address: #{r_ip.to_s}", loglevel)
-                        end
+                res and res.each do |r|
+                    if matches_subnets?(r[0]) then
+                        log(1, "Found valid IP address: #{r[0]}", loglevel)
+
+                        # This rather inscrutible line adds the IP to the hosts table through add_ip,
+                        # and then adds the {ip => row_num} pair to a map for use by add_usage.
+                        ip_map[r[0]] = add_ip({:dconn => dconn, :ip => r[0], :loglevel => loglevel})
                     end
                 end
                 res and res.free
-                valid_ips.each do |v|
-                    insert_id = add_ip({:dconn => dconn, :ip => v, :loglevel => loglevel})
-                    ip_map[v.to_s] = insert_id
-                end
 
                 # Summarise traffic 
                 add_usage({:sconn => sconn, :dconn => dconn, :ip_map => ip_map, :date => d, :loglevel => loglevel})
