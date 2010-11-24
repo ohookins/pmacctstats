@@ -179,7 +179,7 @@ class Summarise
 
             # Determine list of days we have to process.
             # We don't want to import today's stats as we won't have the complete day's stats.
-            stmt = "SELECT DISTINCT(DATE(stamp_inserted)) AS date FROM acct WHERE stamp_inserted > \'#{import_date}\' AND stamp_inserted < DATE(NOW()) ORDER BY date"
+            stmt = "SELECT DISTINCT(DATE(stamp_inserted)) AS date FROM acct WHERE DATE(stamp_inserted) > \'#{import_date}\' AND DATE(stamp_inserted) < DATE(NOW()) ORDER BY date"
             log(2, stmt, loglevel)
             res = sconn.query(stmt)
             if res and res.num_rows() >= 1 then

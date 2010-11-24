@@ -3,6 +3,21 @@
   <%=h @host.ip %>
 </p>
 
+<b>Usage:</b>
+<table>
+  <tr>
+    <th>Date</th>
+    <th>In MB</th>
+    <th>Out MB</th>
+  </tr>
 
-<%= link_to 'Edit', edit_host_path(@host) %> |
+  <% for entry in @host.usage_entries %>
+  <tr>
+    <td><%=h entry.date %></td>
+    <td><%=h entry.in %></td>
+    <td><%=h entry.out %></td>
+  </tr>
+  <% end %>
+</table>
+
 <%= link_to 'Back', hosts_path %>
