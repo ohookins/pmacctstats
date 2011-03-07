@@ -2,17 +2,30 @@ require 'rubygems'
 require 'mysql'
 require 'ipaddr'
 require 'bigdecimal'
+require 'inifile'
+
+class NoConfFileError < Exception; end
+class UnreadableConfFileError < Exception; end
+class MissingConfSectionError < Exception; end
+class EmptyConfSectionError < Exception; end
+class MissingConfValueError < Exception; end
 
 class Summarise
     # define some constants used throughout the summarisation
-    CONFIG   = Rails::Configuration.new
-    HOST     = CONFIG.database_configuration[RAILS_ENV]["host"]
-    SOURCEDB = 'pmacct'
-    DESTDB   = CONFIG.database_configuration[RAILS_ENV]["database"]
-    USERNAME = CONFIG.database_configuration[RAILS_ENV]["username"]
-    PASSWORD = CONFIG.database_configuration[RAILS_ENV]["password"]
+    CONFIGFILE = '/etc/pmacctstats.conf'
+    CONFIGPARTS = [:main, :source, :destination]
     STARTDATE = '2010-01-01'
-    LOCALNETS = ['192.168.1.0/24'] # supports both IPv4 and IPv6
+
+    # Database and network settings
+    @@sourcehost = nil
+    @@sourcedb = nil
+    @@sourceuser = nil
+    @@sourcepass = nil
+    @@desthost = nil
+    @@destdb = nil
+    @@destuser = nil
+    @@destpass = nil
+    @@localnets = nil
 
     private
     # reasonably naive logging shortcut
@@ -27,6 +40,48 @@ class Summarise
         caller[0] =~ /`([^']*)'/ and $1
     end 
 
+    # Return path to configuration file. This makes testing easier.
+    def self.config_file
+      CONFIGFILE
+    end
+
+    # Parse configuration file
+    def self.get_config
+        # File must exist and at least be readable
+        File.file?(self.config_file) or raise NoConfFileError
+        File.readable?(self.config_file) or raise UnreadableConfFileError
+
+        conf = IniFile.load(config_file)
+        
+        # Check all necessary sections exist
+        CONFIGPARTS.each do |c|
+            conf.has_section?(c) or raise MissingConfSectionError, c
+            conf[c] == {} and raise EmptyConfSectionError, c
+        end
+
+        # Populate our variables
+        @@sourcehost = conf[:source]['host']
+        @@sourcedb = conf[:source]['database']
+        @@sourceuser = conf[:source]['username']
+        @@sourcepass = conf[:source]['password']
+        @@desthost = conf[:destination]['host']
+        @@destdb = conf[:destination]['database']
+        @@destuser = conf[:destination]['username']
+        @@destpass = conf[:destination]['password']
+        @@localnets = conf[:main]['networks']
+
+        # Check we have all values
+        emptyvars = []
+        self.class_variables.each do |v|
+            (eval v) == nil and emptyvars.push(v)
+        end
+        unless emptyvars == [] then
+            e = ''
+            emptyvars.each { |v| e.concat("#{v} ") }
+            raise MissingConfValueError, e.chomp(' ')
+        end
+    end
+
     # shortcut for matching an IP in one of our valid subnets
     def self.matches_subnets? (ip)
         unless ip
@@ -39,7 +94,7 @@ class Summarise
                 log(0, "Invalid IP address #{ip} caught in #{this_method_name}")
                 return false
             end
-            LOCALNETS.each do |n|
+            @@localnets.each do |n|
                 IPAddr.new(n).include?(ip_obj) and return true
             end
             return false
@@ -147,16 +202,16 @@ class Summarise
 
         begin
             # establish source database connection (raw pmacct database)
-            sconn = Mysql::connect(HOST, USERNAME, PASSWORD, SOURCEDB)
+            sconn = Mysql::connect(@@sourcehost, @@sourceuser, @@sourcepass, @@sourcedb)
             unless sconn
-                fail("Couldn't connect to database #{SOURCEDB} with #{USERNAME}@#{HOST} with given password.")
+                fail("Couldn't connect to database #{@@sourcedb} with #{@@sourceuser}@#{@@sourcehost} with given password.")
             end
             sconn.autocommit(0)
 
             # establish destination database connection
-            dconn = Mysql::connect(HOST, USERNAME, PASSWORD, DESTDB)
+            dconn = Mysql::connect(@@desthost, @@destuser, @@destpass, @@destdb)
             unless dconn
-                fail("Couldn't connect to database #{DESTDB} with #{USERNAME}@#{HOST} with given password.")
+                fail("Couldn't connect to database #{@@destdb} with #{@@destuser}@#{@@desthost} with given password.")
             end
             dconn.autocommit(0)
         rescue
