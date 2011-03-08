@@ -68,7 +68,7 @@ class Summarise
         @@destdb = conf[:destination]['database']
         @@destuser = conf[:destination]['username']
         @@destpass = conf[:destination]['password']
-        @@localnets = conf[:main]['networks']
+        @@localnets = conf[:main]['networks'].delete(' ').split(',')
 
         # Check we have all values
         emptyvars = []

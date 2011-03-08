@@ -33,25 +33,29 @@ Put the source somewhere, start up script/server like you usually would, or run 
 Import of pmacct data
 ---------------------
 
+### Configuration file
 Please create a configuration file, "/etc/pmacctstats.conf" containing the following information:
 
     [main]
-    networks = '192.0.2.0/24'
+    networks = 192.0.2.0/24,fe80::/64
 
     [source]
-    database = 'pmacct'
-    host = 'localhost'
-    username = 'pmacct'
-    password = 'secret'
+    database = pmacct
+    host = localhost
+    username = pmacct
+    password = secret
 
     [destination]
-    database = 'pmacctstats'
-    host = 'localhost'
-    username = 'pmacctstats'
-    password = 'secret'
+    database = pmacctstats
+    host = localhost
+    username = pmacctstats
+    password = secret
 
-It at least needs to be readable by the user you run pmacctstats as.
+* It at least needs to be readable by the user you run pmacctstats as.
+* Multiple local network designations must be comma-separated.
+* IPv4 and IPv6 are supported.
 
+### Importing
 * lib/summarise.rb contains the logic for importing the traffic data.
 * You can (in fact MUST right now) run it manually from rake:
     * rake summarise

@@ -56,6 +56,7 @@ class SummariseTest < Test::Unit::TestCase
       Summarise.get_config
     end
 
+    # All variables provided, nothing should go wrong.
     conf[:main][:networks] = 'foo'
     conf[:source][:host] = 'foo'
     conf[:source][:database] = 'foo'
@@ -68,6 +69,14 @@ class SummariseTest < Test::Unit::TestCase
     conf.save
     assert_nothing_raised do
       Summarise.get_config
+    end
+
+    # Check we can pass an array of networks
+    conf[:main][:networks] = '192.0.2.0/25,192.0.2.128/25'
+    conf.save
+    assert_nothing_raised do
+      Summarise.get_config
+      assert_equal(true, Summarise.matches_subnets?('192.0.2.1/32'))
     end
   end
 end
