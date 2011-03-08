@@ -199,6 +199,7 @@ class Summarise
     def self.run (loglevel = 0)
         import_date = nil
         import_list = []
+        self.get_config
 
         begin
             # establish source database connection (raw pmacct database)
