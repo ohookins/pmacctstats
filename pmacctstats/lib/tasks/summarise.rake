@@ -1,5 +1,5 @@
 require 'summarise'
 
 task :summarise do
-    Summarise.run(1)
+  Summarise.run(1)
 end
