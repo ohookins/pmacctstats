@@ -251,6 +251,7 @@ class Summarise
 
       # Run import for each missing day of stats
       import_list.each do |d|
+        start_time = Time.now() 
         log(1, "Now importing from date: #{d}", loglevel)
 
         # Determine list of active IPs and check them against our local subnets.
@@ -271,6 +272,7 @@ class Summarise
 
         # Summarise traffic 
         add_usage({:sconn => sconn, :dconn => dconn, :date => d, :loglevel => loglevel})
+        log(1, "Processed in #{Time.now - start_time} seconds", loglevel)
       end 
     rescue => detail
       log(0, detail, loglevel)
