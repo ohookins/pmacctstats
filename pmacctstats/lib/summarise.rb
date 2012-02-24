@@ -1,5 +1,5 @@
 require 'rubygems'
-require 'mysql'
+require 'mysql2'
 require 'ipaddr'
 require 'bigdecimal'
 require 'inifile'
