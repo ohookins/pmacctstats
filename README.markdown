@@ -9,19 +9,8 @@ Overview
 Requirements
 ------------
 
-Development is currently on Ubuntu 10.10, and using the following versions:
-
 * Ruby 1.8.7
-* Gems:
-    * actionmailer (2.3.5)
-    * actionpack (2.3.5)
-    * activerecord (2.3.5)
-    * activeresource (2.3.5)
-    * activesupport (2.3.5)
-    * rails (2.3.5)
-    * mysql (2.8.1)
-    * inifile (0.4.1)
-    * mocha (0.9.8) - if you want to run unit tests
+* Gems listed in Gemfile (use bundler)
 * libmysqlclient14
 * MySQL 5.1.41-3ubuntu12.7
 
@@ -60,3 +49,12 @@ Please create a configuration file, "/etc/pmacctstats.conf" containing the follo
 * You can (in fact MUST right now) run it manually from rake:
     * rake summarise
 * I suggest you schedule this from cron at the moment, to run some time after midnight, to import the previous day's stats.
+
+Testing
+-------
+In its infinite wisdom, Rails 3 will attempt to populate your testing database
+from the development database before running tests. If you don't feel like
+keeping MySQL around all the time for testing just run the following:
+
+RAILS_ENV='test' rake db:migrate
+RAILS_ENV='test' rake test

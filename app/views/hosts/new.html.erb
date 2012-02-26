@@ -1,7 +1,17 @@
 <h1>New host</h1>
 
 <%= form_for(@host) do |f| %>
-  <%= f.error_messages %>
+  <% if @host.errors.any? %>
+  <div id="errorExplanation">
+    <h2><%= pluralize(@host.errors.count, "error") %> prohibited
+        this post from being saved:</h2>
+    <ul>
+    <% @host.errors.full_messages.each do |msg| %>
+      <li><%= msg %></li>
+    <% end %>
+    </ul>
+  </div>
+  <% end %>
 
   <p>
     <%= f.label :ip %><br />

@@ -1,7 +1,17 @@
 <h1>New usage_entry</h1>
 
 <%= form_for(@usage_entry) do |f| %>
-  <%= f.error_messages %>
+  <% if @usage_entry.errors.any? %>
+  <div id="errorExplanation">
+    <h2><%= pluralize(@usage_entry.errors.count, "error") %> prohibited
+        this post from being saved:</h2>
+    <ul>
+    <% @usage_entry.errors.full_messages.each do |msg| %>
+      <li><%= msg %></li>
+    <% end %>
+    </ul>
+  </div>
+  <% end %>
 
   <p>
     <%= f.label :in %><br />
