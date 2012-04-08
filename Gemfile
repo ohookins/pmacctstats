@@ -41,5 +41,9 @@ gem 'jquery-rails'
 # App dependencies
 gem 'inifile'
 gem 'sqlite3'
-gem 'mocha'
 gem 'rake'
+
+# Testing
+group :development, :test do
+  gem 'rspec-rails'
+end
