@@ -5,5 +5,7 @@ require 'summarise'
 
 desc 'Summarise all of the unprocessed pmacct data into the pmacctstats database'
 task :summarise do
-  Summarise.run(1)
+  summarise = Summarise.new()
+  summarise.loglevel = 1
+  summarise.run()
 end

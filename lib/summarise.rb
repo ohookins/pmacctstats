@@ -178,16 +178,16 @@ class Summarise
   end
 
   # connect up the ruby on rails database to the default ActiveRecord::Base
-  # adaptor, and the source pmacct database to an adaptor specific to that
+  # adapter, and the source pmacct database to an adaptor specific to that
   # subclass
   def connect_activerecord()
-    # FIXME: parameterise the adaptor
-    ActiveRecord::Base.establish_connection(:adaptor  => 'mysql2',
+    # FIXME: parameterise the adapter
+    ActiveRecord::Base.establish_connection(:adapter  => 'mysql2',
                                             :host     => @settings[:desthost],
                                             :username => @settings[:destuser],
                                             :password => @settings[:destpass],
                                             :database => @settings[:destdb])
-    PmacctEntry.establish_connection(:adaptor  => 'mysql2',
+    PmacctEntry.establish_connection(:adapter  => 'mysql2',
                                      :host     => @settings[:sourcehost],
                                      :username => @settings[:sourceuser],
                                      :password => @settings[:sourcepass],
