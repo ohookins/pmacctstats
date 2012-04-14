@@ -46,4 +46,5 @@ gem 'rake'
 # Testing
 group :development, :test do
   gem 'rspec-rails'
+  gem 'ruby-debug'
 end

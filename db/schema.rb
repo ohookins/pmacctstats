@@ -27,4 +27,19 @@ ActiveRecord::Schema.define(:version => 20101116201752) do
     t.datetime "updated_at",                               :null => false
   end
 
+  # FIXME: This is only here so tests succeed. Find a way to load fixtures into
+  # multiple test databases.
+  create_table "acct" do |t|
+    t.string    "mac_src"
+    t.string    "mac_dst"
+    t.string    "ip_src"
+    t.string    "ip_dst"
+    t.integer   "src_port"
+    t.integer   "dst_port"
+    t.string    "ip_proto"
+    t.integer   "packets"
+    t.integer   "bytes"
+    t.datetime  "stamp_inserted"
+    t.datetime  "stamp_updated"
+  end
 end

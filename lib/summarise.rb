@@ -1,8 +1,11 @@
 require 'rubygems'
-require 'mysql2'
+require 'active_record'
 require 'ipaddr'
 require 'bigdecimal'
 require 'inifile'
+require 'app/models/pmacct_entry'
+require 'app/models/usage_entry'
+require 'app/models/host'
 
 class NoConfFileError < Exception; end
 class UnreadableConfFileError < Exception; end
@@ -14,66 +17,72 @@ class Summarise
   # define some constants used throughout the summarisation
   CONFIGFILE = '/etc/pmacctstats.conf'
   CONFIGPARTS = [:main, :source, :destination]
-  STARTDATE = '2010-01-01'
+  STARTDATE = Date::civil(2010, 01, 01)
 
-  # Database and network settings
-  @@sourcehost = nil
-  @@sourcedb = nil
-  @@sourceuser = nil
-  @@sourcepass = nil
-  @@desthost = nil
-  @@destdb = nil
-  @@destuser = nil
-  @@destpass = nil
-  @@localnets = nil
+  attr_accessor :loglevel
 
-  private
+  def initialize()
+    @loglevel = 0
+
+    # Database and network settings
+    @settings = {:sourcehost => nil,
+                  :sourcedb   => nil,
+                  :sourceuser => nil,
+                  :sourcepass => nil,
+                  :desthost   => nil,
+                  :destdb     => nil,
+                  :destuser   => nil,
+                  :destpass   => nil,
+                  :localnets  => nil
+                 }
+  end
+
   # reasonably naive logging shortcut
-  def self.log (msglevel, msg, loglevel = 0)
+  def log (msglevel, msg, loglevel = 0)
     if msglevel and msg and loglevel >= msglevel then
         puts msg
     end
-  end 
+  end
 
   # shortcut for outputting the current method call name
-  def self.this_method_name
+  def this_method_name
     caller[0] =~ /`([^']*)'/ and $1
-  end 
+  end
 
   # Return path to configuration file. This makes testing easier.
-  def self.config_file
+  def config_file
     CONFIGFILE
   end
 
   # Parse configuration file
-  def self.get_config
+  def get_config
     # File must exist and at least be readable
-    File.file?(self.config_file) or raise NoConfFileError
-    File.readable?(self.config_file) or raise UnreadableConfFileError
+    File.file?(config_file) or raise NoConfFileError
+    File.readable?(config_file) or raise UnreadableConfFileError
 
     conf = IniFile.load(config_file)
-    
+
     # Check all necessary sections exist
     CONFIGPARTS.each do |c|
-      conf.has_section?(c) or raise MissingConfSectionError, c
-      conf[c] == {} and raise EmptyConfSectionError, c
+      raise(MissingConfSectionError, c) unless conf.has_section?(c)
+      raise(EmptyConfSectionError, c) if conf[c] == {}
     end
 
     # Populate our variables
-    @@sourcehost = conf[:source]['host']
-    @@sourcedb = conf[:source]['database']
-    @@sourceuser = conf[:source]['username']
-    @@sourcepass = conf[:source]['password']
-    @@desthost = conf[:destination]['host']
-    @@destdb = conf[:destination]['database']
-    @@destuser = conf[:destination]['username']
-    @@destpass = conf[:destination]['password']
-    @@localnets = conf[:main]['networks'].delete(' ').split(',')
+    @settings[:sourcehost] = conf[:source]['host']
+    @settings[:sourcedb] = conf[:source]['database']
+    @settings[:sourceuser] = conf[:source]['username']
+    @settings[:sourcepass] = conf[:source]['password']
+    @settings[:desthost] = conf[:destination]['host']
+    @settings[:destdb] = conf[:destination]['database']
+    @settings[:destuser] = conf[:destination]['username']
+    @settings[:destpass] = conf[:destination]['password']
+    @settings[:localnets] = conf[:main]['networks'].delete(' ').split(',')
 
     # Check we have all values
     emptyvars = []
-    self.class_variables.each do |v|
-      (eval v) == nil and emptyvars.push(v)
+    @settings.each_pair do |k,v|
+      emptyvars.push(k) if v.nil?
     end
     unless emptyvars == [] then
       e = ''
@@ -83,206 +92,209 @@ class Summarise
   end
 
   # shortcut for matching an IP in one of our valid subnets
-  def self.matches_subnets? (ip)
-    unless ip
+  def matches_subnets? (ip)
+    if ! ip
       return false
     else
       ip_obj = nil
       begin
         ip_obj = IPAddr.new(ip)
       rescue ArgumentError
-        log(0, "Invalid IP address #{ip} caught in #{this_method_name}")
+        log(0, "Invalid IP address #{ip} caught in #{self.this_method_name}")
         return false
       end
-      @@localnets.each do |n|
+      @settings[:localnets].each do |n|
         IPAddr.new(n).include?(ip_obj) and return true
       end
       return false
     end
   end
 
-  # adds an ip (host) entry to the rails database
-  def self.add_ip(params = {:dconn => nil, :ip => nil, :loglevel => 0})
-    params[:dconn].class == Mysql2::Client or raise "#{this_method_name} was not passed a valid MySQL connection."
-    IPAddr.new(params[:ip]) or raise "#{this_method_name} was not passed a valid IP address."
-
-    # check the IP is not already there
-    stmt = "SELECT id FROM hosts WHERE ip = \'#{params[:ip]}\'"
-    log(2, stmt, params[:loglevel])
-    res = params[:dconn].query(stmt)
-    if res and res.count() >= 1 then
-      if res.count() > 1 then
-        raise "#{params[:ip]} found multiple times in the hosts table, this should not happen."
-      end
-      log(2, "#{params[:ip]} found at ID #{params[:dconn].last_id()} in hosts table.", params[:loglevel])
-
-    # didn't find the IP address in the table, so add it
-    else
-      begin
-        stmt = "INSERT INTO hosts (id, ip, created_at, updated_at) VALUES (NULL, \'#{params[:ip]}\', NOW(), NOW())"
-        log(2, stmt, params[:loglevel])
-        params[:dconn].query('START TRANSACTION')
-        params[:dconn].query(stmt)
-        log(2, "#{params[:ip]} inserted at ID #{params[:dconn].last_id}", params[:loglevel])
-        params[:dconn].query('COMMIT')
-      rescue => detail
-        params[:dconn].query('ROLLBACK')
-        raise "insertion of #{params[:ip]} failed and was rolled back in #{this_method_name} => #{detail}"
-      end
-    end
-    return params[:dconn].last_id
+  # adds an host object to the rails database
+  def add_active_hosts(day)
   end
 
-  # add usage for local IPs for a date to the rails database
-  def self.add_usage(params = {:sconn => nil, :dconn => nil, :date => nil, :loglevel => nil})
-    # NOTE: Since MySQL does not have built-in useful IP address functions like PostgreSQL,
-    # we are forced to grab all rows and do filtering in the app. This may become unfeasible
-    # when the daily stats become too large. ### IN (\'#{foo.keys * %q{','}}\')
-
-    stmt = "SELECT ip_src,ip_dst,bytes FROM acct WHERE DATE(stamp_inserted) = \'#{params[:date]}\'"
-    log(2, stmt, params[:loglevel])
-    res = params[:sconn].query(stmt, :stream => true)
-    res and log(2, "number of rows: #{res.count()}", params[:loglevel])
+  # get usage for local IPs for a date from the pmacct database
+  def get_daily_usage(day)
+    # This is very inefficient. When the result set becomes too big to fit in memory
+    # we may have to map/reduce or hack cursors into AR later.
+    log(2, "Pulling out usage data for #{day}", @loglevel)
+    usage = PmacctEntry.where('stamp_inserted > ? AND stamp_inserted < ?',
+                                day.strftime('%Y-%m-%d 00:00'),
+                                (day+1).strftime('%Y-%m-%d 00:00')
+                                ).all({:select => ['ip_src','ip_dst','bytes']})
+    log(2, "number of rows: #{usage.count()}", @loglevel)
 
     # Process each row in the result set and tally the bytes for each valid IP
     source_matched = 0 # purely diagnostic tracking
     dest_matched = 0 # ditto
-    bytesbyip = {} # keep a hash of our matched IPs and their byte counters like {IP => [inbytes, outbytes]}
-    res and res.each do |r|
-      if matches_subnets?(r['ip_src']) and not matches_subnets?(r['ip_dst']) then
+    # keep a hash of our matched IPs and their byte counters like:
+    # {IP => {:in => inbytes, :out => outbytes}}
+    bytes_by_ip = {}
+
+    usage.each do |row|
+      # Egress bandwidth
+      if matches_subnets?(row.ip_src) and not matches_subnets?(row.ip_dst) then
         source_matched += 1
-        bytesbyip[r['ip_src']] or bytesbyip[r['ip_src']] = [0,0] # create a record in the hash if missing
-        bytesbyip[r['ip_src']][1] += r['bytes'].to_i
-      elsif matches_subnets?(r['ip_dst']) and not matches_subnets?(r['ip_src']) then
+        bytes_by_ip[row.ip_src] or bytes_by_ip[row.ip_src] = {:in => 0, :out => 0} # create a record in the hash if missing
+        bytes_by_ip[row.ip_src][:out] += row.bytes
+      # Ingress bandwidth
+      elsif matches_subnets?(row.ip_dst) and not matches_subnets?(row.ip_src) then
         dest_matched += 1
-        bytesbyip[r['ip_dst']] or bytesbyip[r['ip_dst']] = [0,0] # create a record in the hash if missing
-        bytesbyip[r['ip_dst']][0] += r['bytes'].to_i
+        bytes_by_ip[row.ip_dst] or bytes_by_ip[row.ip_dst] = {:in => 0, :out => 0} # create a record in the hash if missing
+        bytes_by_ip[row.ip_dst][:in] += row.bytes
       end
     end
-    log(1, "source_matched: #{source_matched} for #{params[:date]}", params[:loglevel])
-    log(1, "dest_matched: #{dest_matched} for #{params[:date]}", params[:loglevel])
-    log(2, bytesbyip.each { |k,v| puts "#{k}: #{v[0]} in, #{v[1]} out" }, params[:loglevel])
+    log(1, "source_matched: #{source_matched} for #{day}", @loglevel)
+    log(1, "dest_matched: #{dest_matched} for #{day}", @loglevel)
+    log(2, bytes_by_ip.each_pair { |host,usage| "#{host}: #{usage[:in]} in, #{usage[:out]} out" }, @loglevel)
 
-    # Finally, insert the usage data into the rails usage_entries table
-    bytesbyip.each do |k,v|
-      stmt = "SELECT id FROM hosts WHERE ip = \'#{k}\'"
-      log(2, stmt, params[:loglevel])
-      res = params[:dconn].query(stmt)
-      id = nil
-      unless res and res.count() == 1 then
-        log(0, "#{this_method_name} wasn't able to find #{k} in the database, but it has usage data.", params[:loglevel])
-        next
+    return bytes_by_ip
+  end
+
+  def insert_daily_usage(bytes_by_ip, day)
+    # Loop over each valid host
+    bytes_by_ip.each_pair do |ip,usage|
+
+      # Find the object or create a new one for this host
+      host_obj = Host.where(:ip => ip).first
+      if host_obj.nil? then
+        Host.new(:ip => ip).save
+        host_obj = Host.where(:ip => ip).first
+        log(2, "Created new host object with id #{host_obj.id} for #{ip}", @loglevel)
       else
-        id = res.first['id']
+        log(2, "Found host object with id #{host_obj.id} for #{ip}", @loglevel)
       end
 
-      # Add the record now, convert numbers from bytes to MB in fixed decimal
-      begin
-        inMB = (BigDecimal.new(v[0].to_s)/(1024**2)).round(2).to_f
-        outMB = (BigDecimal.new(v[1].to_s)/(1024**2)).round(2).to_f
-        stmt = "INSERT INTO usage_entries VALUES (NULL, #{id}, \'#{inMB}\', \'#{outMB}\', \'#{params[:date]}\', NOW(), NOW())"
-        params[:dconn].query('START TRANSACTION')
-        params[:dconn].query(stmt)
-        params[:dconn].query('COMMIT')
-      rescue => detail
-        params[:dconn].query('ROLLBACK')
-        raise "Error while inserting usage for #{params[:date]} in #{this_method_name} => #{detail}"
-      end
+      # Add usage data for this host.
+      # We convert numbers from bytes to MB in fixed decimal
+      inMB = (BigDecimal.new(usage[:in].to_s)/(1024**2)).round(2).to_f
+      outMB = (BigDecimal.new(usage[:out].to_s)/(1024**2)).round(2).to_f
+      UsageEntry.new(:host_id => host_obj.id,
+                     :in      => inMB,
+                     :out     => outMB,
+                     :date    => day.strftime('%Y-%m-%d')).save
     end
   end
 
-  public
-  # the guts of the usage summarisation
-  def self.run (loglevel = 0)
-    import_date = nil
-    import_list = []
-    self.get_config
+  # connect up the ruby on rails database to the default ActiveRecord::Base
+  # adaptor, and the source pmacct database to an adaptor specific to that
+  # subclass
+  def connect_activerecord()
+    # FIXME: parameterise the adaptor
+    ActiveRecord::Base.establish_connection(:adaptor  => 'mysql2',
+                                            :host     => @settings[:desthost],
+                                            :username => @settings[:destuser],
+                                            :password => @settings[:destpass],
+                                            :database => @settings[:destdb])
+    PmacctEntry.establish_connection(:adaptor  => 'mysql2',
+                                     :host     => @settings[:sourcehost],
+                                     :username => @settings[:sourceuser],
+                                     :password => @settings[:sourcepass],
+                                     :database => @settings[:sourcedb])
+  end
 
-    begin
-      # establish source database connection (raw pmacct database)
-      sconn = Mysql2::Client.new({:host     => @@sourcehost,
-                                  :username => @@sourceuser,
-                                  :password => @@sourcepass,
-                                  :database => @@sourcedb})
-      unless sconn
-        fail("Couldn't connect to database #{@@sourcedb} with #{@@sourceuser}@#{@@sourcehost} with given password.")
-      end
-      sconn.query('SET AUTOCOMMIT = 0')
+  # Determine the most recently imported usage date
+  def last_import_date()
+    log(2, 'Calculating UsageEntry.maximum(:date)', @loglevel)
 
-      # establish destination database connection
-      dconn = Mysql2::Client.new({:host     => @@desthost,
-                                  :username => @@destuser,
-                                  :password => @@destpass,
-                                  :database => @@destdb})
-      unless dconn
-        fail("Couldn't connect to database #{@@destdb} with #{@@destuser}@#{@@desthost} with given password.")
-      end
-      dconn.query('SET AUTOCOMMIT = 0')
-    rescue
-      sconn && sconn.close
-      raise
+    # This is an arbitrary date cut-off in the case of no pre-existing stats.
+    import_date = UsageEntry.maximum(:date) || STARTDATE
+    log(1, "last import date: #{import_date}", @loglevel)
+
+    return import_date
+  end
+
+  # Convenience method to facilitate testing
+  def current_civil_date()
+    Time.now.strftime('%Y-%m-%d')
+  end
+
+  # Determine list of days we have to process, given the last
+  # successfully imported date.
+  def find_unimported_days(import_date)
+    # This will be expensive, but it should at least be DB agnostic.
+    # Although, this DB should not be indexed anyway, so a row-scan is
+    # inevitable.
+    import_date += 1 # Need to look from the start of the next day.
+    log(2, 'Retrieving unimported rows from database.', @loglevel)
+    entries = PmacctEntry.where("stamp_inserted > ? AND stamp_inserted < ?",
+                                import_date.strftime('%Y-%m-%d'),
+                                current_civil_date()).all(
+                                {:select => 'stamp_inserted',
+                                :group => 'stamp_inserted',
+                                })
+
+    # List of days we have yet to import
+    import_list = entries.map { |x| x.stamp_inserted.strftime('%Y-%m-%d') }.uniq
+
+    # Display what needs to be imported
+    if import_list.empty?
+      log(1, "Nothing to import", @loglevel)
+    else
+      log(1, import_list.map { |x| "need to import: #{x}" }, @loglevel)
     end
+    return import_list
+  end
 
-    begin
-      # Determine our cut-off date for the latest stats.
-      # This is an arbitrary date cut-off in the case of no pre-existing stats.
-      stmt = "SELECT COALESCE((SELECT MAX(date) FROM usage_entries), \'#{STARTDATE}\') AS date"
-      log(2, stmt, loglevel)
-      res = dconn.query(stmt)
-      if res and res.count() == 1 then
-        import_date = res.first['date']
-        log(1, "last import date: #{import_date}", loglevel)
-      else
-        fail('Unable to determine last usage import date, or use a default value.')
+  # For a given date, pull all of the unique addresses seen in the accounting
+  # data and match only the ones that we are interested in.
+  # Sadly this is quite tricky to do in everything that isn't PostgreSQL
+  def get_active_addresses(day)
+    log(1, "Now importing from date: #{day.strftime('%Y-%m-%d')}", @loglevel)
+
+    # Determine list of active IPs and check them against our local subnets.
+    # This is all local IPs that were a source or destination of traffic.
+    log(2, "Determining active IPs for #{day.strftime('%Y-%m-%d')}", @loglevel)
+    sources = PmacctEntry.where('stamp_inserted > ? AND stamp_inserted < ?',
+                                day.strftime('%Y-%m-%d 00:00'),
+                                (day+1).strftime('%Y-%m-%d 00:00')
+                                ).uniq.pluck(:ip_src)
+    destinations = PmacctEntry.where('stamp_inserted > ? AND stamp_inserted < ?',
+                                day.strftime('%Y-%m-%d 00:00'),
+                                (day+1).strftime('%Y-%m-%d 00:00')
+                                ).uniq.pluck(:ip_dst)
+
+    # Pick out valid IP addresses from our array of sources and destinations on
+    # this one day.
+    return (sources + destinations).flatten.uniq.map do |address|
+      if self.matches_subnets?(address) then
+        log(1, "Found valid IP address: #{address}", @loglevel)
+        address
       end
-      # Determine list of days we have to process.
-      # We don't want to import today's stats as we won't have the complete day's stats.
-      stmt = "SELECT DISTINCT(DATE(stamp_inserted)) AS date FROM acct WHERE DATE(stamp_inserted) > \'#{import_date}\' AND DATE(stamp_inserted) < DATE(NOW()) ORDER BY date"
-      log(2, stmt, loglevel)
-      res = sconn.query(stmt)
-      if res.count() >= 1 then
-        res.each do |row|
-          if row['date'].class == Date
-            import_list.push(row['date'])
-            log(1, "need to import: #{row['date']}", loglevel)
-          end
-        end
-      else
-        log(1, "Nothing to import", loglevel)
-        return(0)
-      end
+    end.compact
+  end
 
-      # Run import for each missing day of stats
-      import_list.each do |d|
-        start_time = Time.now() 
-        log(1, "Now importing from date: #{d}", loglevel)
+  # the guts of the usage summarisation
+  def run()
+    get_config()
 
-        # Determine list of active IPs and check them against our local subnets.
-        # MySQL can't do the calculations natively, sadly.
-        stmt = "SELECT DISTINCT(ip_src) AS ip FROM acct WHERE DATE(stamp_inserted) = \'#{d}\' UNION DISTINCT SELECT DISTINCT(ip_dst) AS ip FROM acct WHERE DATE(stamp_inserted) = \'#{d}\'"
-        log(2, stmt, loglevel)
-        res = sconn.query(stmt, :stream => true)
+    # Establish the source and destination connections inside ActiveRecord
+    connect_activerecord()
 
-        # Pick out valid IP addresses and add them to the "hosts" rails table
-        valid_ips = []
-        res and res.each do |r|
-          if matches_subnets?(r['ip']) then
-            log(1, "Found valid IP address: #{r['ip']}", loglevel)
-            add_ip({:dconn => dconn, :ip => r['ip'], :loglevel => loglevel})
-          end
-        end
+    # Determine our cut-off date for the latest stats.
+    import_date = last_import_date()
 
-        # Summarise traffic 
-        add_usage({:sconn => sconn, :dconn => dconn, :date => d, :loglevel => loglevel})
-        log(1, "Processed in #{Time.now - start_time} seconds", loglevel)
-      end 
-    rescue => detail
-      log(0, detail, loglevel)
-    ensure
-      log(1, "Closing source connection", loglevel)
-      sconn.close
-      log(1, "Closing destination connection", loglevel)
-      dconn.close
+    # Determine list of days we have to process.
+    import_list = find_unimported_days(import_date)
+
+    # Run import for each missing day of stats
+    import_list.each do |day|
+      start_time = Time.now()
+
+      # We have to do a full table scan anyway, so determining active local
+      # hosts and adding host objects for them separately to calculating
+      # usage information is a pointless performance hit.
+      #
+      # find the active addresses for the day
+      #active_addresses = get_active_addresses(day)
+
+      # ensure each one has a host object
+      #add_active_hosts(day)
+
+      # Summarise traffic
+      insert_daily_usage(get_daily_usage(day), day)
+      log(1, "Stats for #{day} imported in #{(Time.now - start_time).to_i}s", @loglevel)
     end
   end
 end
