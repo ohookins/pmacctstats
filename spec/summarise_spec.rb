@@ -161,7 +161,8 @@ describe Summarise do
     end
 
     it 'retrieves a list of unimported days of accounting data when some are present' do
-      subject.find_unimported_days(Date::civil(2010,11,3)).should == ['2010-11-04', '2010-11-05', '2010-11-06']
+      subject.find_unimported_days(Date::civil(2010,11,3)).should ==
+        [Date::civil(2010,11,4), Date::civil(2010,11,5), Date::civil(2010,11,6)]
     end
 
     it 'returns [] when there are no accounting data in the database' do

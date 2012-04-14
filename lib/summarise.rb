@@ -226,13 +226,13 @@ class Summarise
                                 })
 
     # List of days we have yet to import
-    import_list = entries.map { |x| x.stamp_inserted.strftime('%Y-%m-%d') }.uniq
+    import_list = entries.map { |x| Date.parse(x.stamp_inserted.strftime('%Y-%m-%d')) }.uniq
 
     # Display what needs to be imported
     if import_list.empty?
       log(1, "Nothing to import", @loglevel)
     else
-      log(1, import_list.map { |x| "need to import: #{x}" }, @loglevel)
+      log(1, import_list.map { |x| "need to import: #{x.strftime('%Y-%m-%d')}" }, @loglevel)
     end
     return import_list
   end
