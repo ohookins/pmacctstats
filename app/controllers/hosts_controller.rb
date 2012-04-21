@@ -2,10 +2,10 @@ class HostsController < ApplicationController
   # GET /hosts
   # GET /hosts.xml
   def index
-    @hosts = Host.all
+    @hosts = UsageEntry.where(:date => (Date::today-1))
 
     respond_to do |format|
-      format.html # index.html.erb
+      format.html # index.html.haml
       format.xml  { render :xml => @hosts }
     end
   end
@@ -16,7 +16,7 @@ class HostsController < ApplicationController
     @host = Host.find(params[:id])
 
     respond_to do |format|
-      format.html # show.html.erb
+      format.html # show.html.haml
       format.xml  { render :xml => @host }
     end
   end
@@ -27,7 +27,7 @@ class HostsController < ApplicationController
     @host = Host.new
 
     respond_to do |format|
-      format.html # new.html.erb
+      format.html # new.html.haml
       format.xml  { render :xml => @host }
     end
   end

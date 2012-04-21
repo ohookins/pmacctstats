@@ -1,4 +1,24 @@
 class UsageEntriesController < ApplicationController
+  def summary
+    # Pull summary information out of database
+    most_recent_date = UsageEntry.maximum(:date)
+    a_month_before = most_recent_date - 30
+    ingress_sums = UsageEntry.where('date >= ?', a_month_before).sum(:in, :group => :date)
+    egress_sums = UsageEntry.where('date >= ?', a_month_before).sum(:out, :group => :date)
+
+    # Generate the last 30 days of in/out
+    @usage_summary = []
+    ingress_sums.zip(egress_sums).each do |i,o|
+      #                 date, in MB, out MB
+      @usage_summary << [i[0], i[1], o[1]]
+    end
+
+    respond_to do |format|
+      format.html
+      format.xml  { render :xml => @usage_summary }
+    end
+  end
+
   # GET /usage_entries
   # GET /usage_entries.xml
   def index

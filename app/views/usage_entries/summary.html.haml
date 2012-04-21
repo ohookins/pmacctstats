@@ -1,0 +1,19 @@
+.row
+  .br
+.row
+  .span8
+    %h1
+      Usage summary
+      %small="(#{@usage_summary.first[0]} to #{@usage_summary.last[0]})"
+    %table.table.table-striped.table-bordered.table-condensed
+      %thead
+        %tr
+          %th Date
+          %th In MB
+          %th Out MB
+      %tbody
+        - @usage_summary.reverse.each do |date,ingress,egress|
+          %tr
+            %td= date
+            %td= ingress
+            %td= egress

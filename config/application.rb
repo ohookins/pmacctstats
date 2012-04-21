@@ -55,5 +55,9 @@ module Pmacctstats
 
     # Version of your assets, change this if you want to expire all your assets
     config.assets.version = '1.0'
+
+    # Add 3rd-party assets
+    config.assets.paths << Rails.root.join('vendor', 'assets', 'bootstrap')
+    config.assets.paths << Rails.root.join('vendor', 'assets', 'jquery')
   end
 end
