@@ -1,0 +1,19 @@
+.row
+  .span8
+    %h1
+      Usage Entry
+      %small= "#{@usage_entry.host.ip} on #{@usage_entry.date}"
+    %table.table.table-striped.table-bordered.table-condensed
+      %thead
+        %tr
+          %th Date
+          %th IP
+          %th In MB
+          %th Out MB
+      %tbody
+        %tr
+          %td= @usage_entry.date
+          %td= @usage_entry.host.ip
+          %td= @usage_entry.in
+          %td= @usage_entry.out
+= link_to('Back', usage_entries_path(), {:class => 'btn btn-info'})

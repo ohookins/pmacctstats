@@ -2,7 +2,7 @@ class HostsController < ApplicationController
   # GET /hosts
   # GET /hosts.xml
   def index
-    @hosts = UsageEntry.where(:date => (Date::today-1))
+    @hosts = Host.find(:all)
 
     respond_to do |format|
       format.html # index.html.haml

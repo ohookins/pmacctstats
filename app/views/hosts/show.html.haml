@@ -1,0 +1,18 @@
+.row
+  .span8
+    %h1
+      Usage
+      %small= @host.ip
+    %table.table.table-striped.table-bordered.table-condensed
+      %thead
+        %tr
+          %th Date
+          %th In MB
+          %th Out MB
+      %tbody
+        - @host.usage_entries.each do |entry|
+          %tr
+            %td= entry.date
+            %td= entry.in
+            %td= entry.out
+= link_to('Back', hosts_path(), {:class => 'btn btn-info'})

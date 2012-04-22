@@ -1,0 +1,21 @@
+.row
+  .span12
+    %h1
+      All Usage Entries
+    %table.table.table-striped.table-bordered.table-condensed
+      %thead
+        %tr
+          %th Show
+          %th Date
+          %th IP
+          %th In MB
+          %th Out MB
+      %tbody
+        - @usage_entries.each do |usage_entry|
+          %tr
+            %td
+              = link_to(usage_entry.id, usage_entry, :class => 'btn btn-info')
+            %td= usage_entry.date
+            %td= usage_entry.host.ip
+            %td= usage_entry.in
+            %td= usage_entry.out
