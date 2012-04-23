@@ -10,7 +10,7 @@
           %th In MB
           %th Out MB
       %tbody
-        - @host.usage_entries.each do |entry|
+        - @host.usage_entries.reverse.each do |entry|
           %tr
             %td= entry.date
             %td= entry.in
